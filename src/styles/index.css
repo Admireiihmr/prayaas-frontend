@@ -1,0 +1,28 @@
+/* Palette lives in ThemeContext, which injects the active theme's variables
+   onto :root and paints the body. This file only holds the reset. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s, color 0.2s;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent, #0891b2);
+  outline-offset: 2px;
+}
