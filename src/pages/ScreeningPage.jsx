@@ -123,17 +123,19 @@ async function buildReportPdf({ result, submitted }) {
 
     // Wraps into rows of `cols` images, breaking to a new page between rows
     // rather than mid-image — the step count varies (Grad-CAM steps may be
-    // skipped if the heatmap fails), so this can't assume a fixed layout.
-    const cols = 3
+    // skipped if the heatmap fails, or absent entirely for normal
+    // predictions), so this can't assume a fixed layout.
+    const cols = result.processing_steps.length === 1 ? 1 : 3
     const gap = 6
-    const cell = (pageWidth - margin * 2 - gap * (cols - 1)) / cols
+    const cellWidth = cols === 1 ? Math.min(70, pageWidth - margin * 2) : (pageWidth - margin * 2 - gap * (cols - 1)) / cols
+    const rowStartX = margin + (pageWidth - margin * 2 - (cols * cellWidth + gap * (cols - 1))) / 2
     let rowY = y
 
     for (let i = 0; i < result.processing_steps.length; i++) {
       const col = i % cols
       if (col === 0) {
-        if (i > 0) y = rowY + cell + 14
-        if (y + cell + 14 > 280) {
+        if (i > 0) y = rowY + cellWidth + 14
+        if (y + cellWidth + 14 > 280) {
           doc.addPage()
           y = 20
         }
@@ -141,13 +143,14 @@ async function buildReportPdf({ result, submitted }) {
       }
 
       const step = result.processing_steps[i]
-      const x = margin + col * (cell + gap)
+      const x = rowStartX + col * (cellWidth + gap)
+      const label = result.processing_steps.length === 1 ? result.label : step.label
       try {
         const img = await loadImage(step.image)
-        const ratio = Math.min(cell / img.width, cell / img.height)
+        const ratio = Math.min(cellWidth / img.width, cellWidth / img.height)
         const w = img.width * ratio
         const h = img.height * ratio
-        doc.addImage(step.image, 'PNG', x + (cell - w) / 2, rowY + (cell - h) / 2, w, h, undefined, 'FAST')
+        doc.addImage(step.image, 'PNG', x + (cellWidth - w) / 2, rowY + (cellWidth - h) / 2, w, h, undefined, 'FAST')
       } catch {
         // Skip a step image that fails to decode rather than aborting the report.
       }
@@ -155,9 +158,9 @@ async function buildReportPdf({ result, submitted }) {
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
       doc.setTextColor(100)
-      doc.text(doc.splitTextToSize(step.label, cell), x + cell / 2, rowY + cell + 5, { align: 'center' })
+      doc.text(doc.splitTextToSize(label, cellWidth), x + cellWidth / 2, rowY + cellWidth + 5, { align: 'center' })
     }
-    y = rowY + cell + 14
+    y = rowY + cellWidth + 14
   }
 
   if (y > 275) {
@@ -421,18 +424,34 @@ export default function ScreeningPage() {
             {result.processing_steps?.length > 0 && (
               <div style={{ marginTop: 22 }}>
                 <h3 style={{ fontSize: 12.5, fontWeight: 700, color: T.textPrimary, margin: '0 0 12px' }}>{t('screen_processing')}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 3}, 1fr)`, gap: 12 }}>
-                  {result.processing_steps.map((step) => (
-                    <div key={step.label} style={{ textAlign: 'center' }}>
+                {result.processing_steps.length === 1 ? (
+                  // Just the original image (normal predictions skip segmentation/Grad-CAM) —
+                  // centered instead of stranded in the first cell of an otherwise-empty grid,
+                  // and captioned with the actual finding rather than the generic step name.
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ textAlign: 'center', width: '100%', maxWidth: 280 }}>
                       <img
-                        src={step.image}
-                        alt={step.label}
+                        src={result.processing_steps[0].image}
+                        alt={result.processing_steps[0].label}
                         style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, border: `1px solid ${T.cardBorder}` }}
                       />
-                      <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 6 }}>{step.label}</div>
+                      <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 6 }}>{result.label}</div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 3}, 1fr)`, gap: 12 }}>
+                    {result.processing_steps.map((step) => (
+                      <div key={step.label} style={{ textAlign: 'center' }}>
+                        <img
+                          src={step.image}
+                          alt={step.label}
+                          style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, border: `1px solid ${T.cardBorder}` }}
+                        />
+                        <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 6 }}>{step.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
