@@ -10,8 +10,8 @@ import { api } from '@/services/apiClient'
 const ACCEPTED = ['image/jpeg', 'image/png']
 const EMPTY_PATIENT = { name: '', gender: '', age: '', abha: '' }
 
-/** Anything but "No Abnormality detected" warrants a referral. */
-const isConcerning = (label) => label !== 'No Abnormality detected'
+/** Anything but "Normal" warrants a referral. */
+const isConcerning = (label) => label !== 'Normal'
 
 const RED = [239, 68, 68]
 const RED_BG = [254, 242, 242]
