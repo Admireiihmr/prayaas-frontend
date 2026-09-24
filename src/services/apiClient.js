@@ -8,6 +8,8 @@ export class ApiError extends Error {
   }
 }
 
+const PUBLIC_PATHS = ['/login', '/signup']
+
 function authHeader() {
   const token = localStorage.getItem('token')
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -27,6 +29,16 @@ async function request(path, options = {}) {
   const body = await response.json().catch(() => null)
 
   if (!response.ok) {
+    // A 401 while we hold a token means the session is dead (expired, or issued
+    // before a backend change). Without this the UI keeps looking signed in while
+    // every request fails or, worse, quietly isn't saved. Login/signup 401s are
+    // ordinary "wrong password" errors, so they're left to show their message.
+    if (response.status === 401 && localStorage.getItem('token') && !PUBLIC_PATHS.includes(path)) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.assign('/')
+    }
+
     const detail = body?.detail
     let message
     if (typeof detail === 'string') {
